@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>leiterrunde_veranstaltungen</id>
+	<name>Events</name>
+	<name lang="de">Veranstaltungen</name>
+	<summary>Events and registrations for the leader team</summary>
+	<summary lang="de">Veranstaltungen und Anmeldungen für die Leiterrunde</summary>
+	<licence>agpl</licence>
+	<author>Leiterrunde</author>
+	<version>2.0.0</version>
+	<namespace>LeiterrundeVeranstaltungen</namespace>
+	<category>organization</category>
+	<bugs>https://github.com/ollimaz/leiterrunde_veranstaltungen/issues</bugs>
+	<repository>https://github.com/ollimaz/leiterrunde_veranstaltungen</repository>
+	<dependencies>
+		<nextcloud min-version="29" max-version="36"/>
+	</dependencies>
+	<navigations>
+		<navigation>
+			<name>Events</name>
+			<route>leiterrunde_veranstaltungen.page.index</route>
+			<icon>leiterrunde_veranstaltungen.svg</icon>
+		</navigation>
+	</navigations>
+	<background-jobs>
+		<job>OCA\LeiterrundeVeranstaltungen\BackgroundJob\SyncRetryJob</job>
+	</background-jobs>
+	<repair-steps>
+		<install>
+			<step>OCA\LeiterrundeVeranstaltungen\Migration\MigrateConfig</step>
+		</install>
+		<post-migration>
+			<step>OCA\LeiterrundeVeranstaltungen\Migration\MigrateConfig</step>
+		</post-migration>
+	</repair-steps>
+	<settings>
+		<admin>OCA\LeiterrundeVeranstaltungen\Settings\SyncPage</admin>
+	</settings>
+</info>
