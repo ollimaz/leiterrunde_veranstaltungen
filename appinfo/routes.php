@@ -28,6 +28,7 @@ return [
 		['name' => 'Api\\Events#backfillObligations', 'url' => '/api/backfill-obligations', 'verb' => 'POST'],
 		['name' => 'Api\\Registrations#index', 'url' => '/api/registrations', 'verb' => 'GET'],
 		['name' => 'Api\\Registrations#update', 'url' => '/api/registrations/{id}', 'verb' => 'PUT'],
+		['name' => 'Api\\Registrations#destroy', 'url' => '/api/registrations/{id}', 'verb' => 'DELETE'],
 		['name' => 'Api\\Settings#show', 'url' => '/api/settings', 'verb' => 'GET'],
 		['name' => 'Api\\Settings#update', 'url' => '/api/settings', 'verb' => 'PUT'],
 	],

@@ -13,6 +13,8 @@ use OCA\Leiterrunde\Controller\Api\ApiController;
 use OCA\Leiterrunde\AppInfo\Application;
 use OCA\LeiterrundeVeranstaltungen\Db\RegistrationMapper;
 use OCA\Leiterrunde\Exception\ApiException;
+use OCA\Leiterrunde\Module\IObligationProvider;
+use OCA\Leiterrunde\Module\ModuleRegistry;
 use OCA\Leiterrunde\Service\AuditService;
 use OCA\Leiterrunde\Service\PermissionService;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -28,6 +30,7 @@ class RegistrationsController extends ApiController {
 		private PermissionService $perm,
 		private RegistrationMapper $mapper,
 		private AuditService $audit,
+		private ModuleRegistry $modules,
 	) {
 		parent::__construct(Application::APP_ID, $request, $logger);
 	}
@@ -67,6 +70,22 @@ class RegistrationsController extends ApiController {
 			$r = $this->mapper->update($r);
 			$this->audit->diff('registration', $r->getId(), $before, $r->jsonSerialize());
 			return $r->jsonSerialize();
+		});
+	}
+
+	#[NoAdminRequired]
+	public function destroy(int $id): JSONResponse {
+		return $this->wrap(function () use ($id) {
+			$this->perm->require('registrations.read');
+			$this->perm->require('events.write');
+			$r = $this->mapper->find($id);
+			if ($r->getObligationId() !== null) {
+				$provider = $this->modules->provider(IObligationProvider::class);
+				$provider?->cancelIfUnpaid($r->getObligationId());
+			}
+			$this->mapper->delete($r);
+			$this->audit->diff('registration', $id, null, ['_action' => 'deleted']);
+			return ['ok' => true];
 		});
 	}
 }

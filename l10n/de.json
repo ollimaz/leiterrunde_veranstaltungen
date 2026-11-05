@@ -30,13 +30,10 @@
         "Sent": "Übertragen",
         "Note: http allowed in debug mode only.": "Hinweis: http nur im Debug-Modus zulässig.",
         "Details": "Daten",
-        "published": "veröffentlicht",
-        "Publish": "Veröffentlichen",
         "Events": "Veranstaltungen",
         "Capacity": "Kapazität",
         "Status": "Status",
         "JSON invalid": "JSON ungültig",
-        "places taken": "Plätzen belegt",
         "Person": "Person",
         "Total: {total} · Capacity: {cap} · Suggested: {suggested} · Fee: {fee}": "Summe: {total} · Kapazität: {cap} · Vorschlag: {suggested} · Beitrag: {fee}",
         "Amount": "Betrag",
@@ -76,7 +73,6 @@
         "Finances module not active": "Finanzen-Modul nicht aktiv",
         "invalid status": "invalid status",
         "Invalid date: %s": "Ungültiges Datum: %s",
-        "Draft": "Entwurf",
         "Sync error: ": "Sync-Error: ",
         "Supervisor check": "Betreuer-Check",
         "Really regenerate? The secret must then also be updated in WordPress.": "Wirklich neu generieren? Das Secret muss danach auch in WordPress aktualisiert werden.",
@@ -99,7 +95,10 @@
         "Cancel": "Abbrechen",
         "(empty)": "(leer)",
         "Create missing payments": "Fehlende Zahlungen anlegen",
-        "The “Leiterrunde” app must be enabled.": "Die App „Leiterrunde“ muss aktiviert sein."
+        "The “Leiterrunde” app must be enabled.": "Die App „Leiterrunde“ muss aktiviert sein.",
+        "Delete event \"{title}\"? This cannot be undone.": "Veranstaltung „{title}“ löschen? Dies kann nicht rückgängig gemacht werden.",
+        "Delete registration for {name}?": "Anmeldung für {name} löschen?",
+        "Deleted": "Gelöscht"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

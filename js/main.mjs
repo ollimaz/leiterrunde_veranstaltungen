@@ -62,9 +62,14 @@ async function viewDetail(v, ME, { api, coreApi }) {
 		[_t('Details'), (c) => dataTab(c, e, canWrite, api)],
 		[_t('Team'), (c) => teamTab(c, e, canWrite, api, coreApi)],
 		[_t('Budget'), (c) => calcTab(c, e, canWrite, api)],
-		[_t('Registrations'), (c) => regsTab(c, e, api)],
+		[_t('Registrations'), (c) => regsTab(c, e, api, canWrite)],
 	];
 	for (const [n, fn] of defs) tabs.append(h('button', { onclick: () => show(n, fn) }, n));
+	const del = async () => {
+		if (!confirm(_t('Delete event "{title}"? This cannot be undone.', { title: e.title }))) return;
+		try { await api('/events/' + id, { method: 'DELETE' }); toast(_t('Deleted'), false); location.hash = '#/liste'; }
+		catch (er) { toast(er.message); }
+	};
 	const publish = async () => {
 		try {
 			const r = await api('/events/' + id + '/publish', { method: 'POST', json: {} });
@@ -81,6 +86,7 @@ async function viewDetail(v, ME, { api, coreApi }) {
 			actions: canWrite ? [
 				e.sync_pending ? h('button', { class: 'lr-btn secondary', onclick: publish }, _t('Retry')) : null,
 				h('button', { class: 'lr-btn', onclick: publish }, _t('Publish to website')),
+				h('button', { class: 'lr-btn quiet', onclick: del }, _t('Delete')),
 			].filter(Boolean) : [],
 		}),
 		tabs, content);
@@ -185,16 +191,34 @@ async function calcTab(c, e, canWrite, api) {
 				canWrite ? h('td', { class: 'lr-actions' }, h('button', { class: 'lr-btn quiet', onclick: () => remove(k) }, _t('Delete'))) : null)))));
 }
 
-async function regsTab(c, e, api) {
+async function regsTab(c, e, api, canWrite) {
 	let rows = [];
 	try { rows = await api('/registrations?event_id=' + e.id); }
 	catch { put(c, h('p', {}, _t('No access to registrations.'))); return; }
+	const reload = () => regsTab(c, e, api, canWrite);
+	const patch = async (r, body) => {
+		try { await api('/registrations/' + r.id, { method: 'PUT', json: body }); toast(_t('Saved'), false); }
+		catch (er) { toast(er.message); reload(); }
+	};
 	put(c, rows.length ? h('table', { class: 'lr-table' },
-		h('thead', {}, h('tr', {}, h('th', {}, _t('Name')), h('th', {}, _t('Email')), h('th', {}, _t('Status')), h('th', {}, _t('Payment')), h('th', {}, _t('Reference')), h('th', {}, _t('Obligation')))),
+		h('thead', {}, h('tr', {}, h('th', {}, _t('Name')), h('th', {}, _t('Email')), h('th', {}, _t('Status')), h('th', {}, _t('Payment')), h('th', {}, _t('Reference')), h('th', {}, _t('Obligation')), canWrite ? h('th', {}, '') : null)),
 		h('tbody', {}, ...rows.map(r => h('tr', {},
-			h('td', {}, r.name), h('td', {}, r.email || ''), h('td', {}, badge(r.status === 'active' ? 'aktiv' : 'cancelled')),
-			h('td', {}, badge(r.payment_state)), h('td', {}, r.payment_ref || ''),
-			h('td', {}, r.obligation_id ? '#' + r.obligation_id : '–')))))
+			h('td', {}, r.name), h('td', {}, r.email || ''),
+			canWrite
+				? h('td', {}, h('select', { onchange: (ev) => patch(r, { status: ev.target.value }) },
+					...['active', 'cancelled'].map(s => h('option', { value: s, selected: r.status === s }, badge(s === 'active' ? 'aktiv' : 'cancelled').textContent))))
+				: h('td', {}, badge(r.status === 'active' ? 'aktiv' : 'cancelled')),
+			canWrite
+				? h('td', {}, h('select', { onchange: (ev) => patch(r, { payment_state: ev.target.value }) },
+					...['open', 'paid', 'waived'].map(s => h('option', { value: s, selected: r.payment_state === s }, s))))
+				: h('td', {}, badge(r.payment_state)),
+			h('td', {}, r.payment_ref || ''),
+			h('td', {}, r.obligation_id ? '#' + r.obligation_id : '–'),
+			canWrite ? h('td', { class: 'lr-actions' }, h('button', { class: 'lr-btn quiet', onclick: async () => {
+				if (!confirm(_t('Delete registration for {name}?', { name: r.name }))) return;
+				try { await api('/registrations/' + r.id, { method: 'DELETE' }); toast(_t('Deleted'), false); reload(); }
+				catch (er) { toast(er.message); }
+			} }, _t('Delete'))) : null))))
 		: emptyState(_t('No registrations.')));
 }
 
