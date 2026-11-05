@@ -95,7 +95,6 @@
         "Cancel": "Abbrechen",
         "(empty)": "(leer)",
         "Create missing payments": "Fehlende Zahlungen anlegen",
-        "The “Leiterrunde” app must be enabled.": "Die App „Leiterrunde“ muss aktiviert sein.",
         "Delete event \"{title}\"? This cannot be undone.": "Veranstaltung „{title}“ löschen? Dies kann nicht rückgängig gemacht werden.",
         "Delete registration for {name}?": "Anmeldung für {name} löschen?",
         "Deleted": "Gelöscht"
