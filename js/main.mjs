@@ -74,6 +74,7 @@ async function viewDetail(v, ME, { api, coreApi }) {
 		try {
 			const r = await api('/events/' + id + '/publish', { method: 'POST', json: {} });
 			toast(r.ok ? _t('Published') : (_t('Sync error: ') + r.error), !r.ok);
+			viewDetail(v, ME, { api, coreApi });
 		} catch (er) { toast(er.message); }
 	};
 	const regs = await api('/registrations?event_id=' + id).catch(() => []);
@@ -126,6 +127,7 @@ async function dataTab(c, e, canWrite, api) {
 				}});
 				if (r.sync_result && !r.sync_result.ok) toast(_t('Saved, sync error: ') + r.sync_result.error);
 				else toast(_t('Saved'), false);
+				c.textContent = ''; dataTab(c, await api('/events/' + e.id), canWrite, api);
 			} catch (err) { toast(err.message); }
 		} }, _t('Save'))));
 	}
@@ -197,7 +199,7 @@ async function regsTab(c, e, api, canWrite) {
 	catch { put(c, h('p', {}, _t('No access to registrations.'))); return; }
 	const reload = () => regsTab(c, e, api, canWrite);
 	const patch = async (r, body) => {
-		try { await api('/registrations/' + r.id, { method: 'PUT', json: body }); toast(_t('Saved'), false); }
+		try { await api('/registrations/' + r.id, { method: 'PUT', json: body }); toast(_t('Saved'), false); reload(); }
 		catch (er) { toast(er.message); reload(); }
 	};
 	put(c, rows.length ? h('table', { class: 'lr-table' },
