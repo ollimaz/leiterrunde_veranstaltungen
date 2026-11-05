@@ -31,5 +31,6 @@ return [
 		['name' => 'Api\\Registrations#destroy', 'url' => '/api/registrations/{id}', 'verb' => 'DELETE'],
 		['name' => 'Api\\Settings#show', 'url' => '/api/settings', 'verb' => 'GET'],
 		['name' => 'Api\\Settings#update', 'url' => '/api/settings', 'verb' => 'PUT'],
+		['name' => 'Api\\Settings#regenerate_secret', 'url' => '/api/settings/secret/regenerate', 'verb' => 'POST'],
 	],
 ];
