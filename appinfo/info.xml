@@ -11,9 +11,9 @@
 	<summary>Events and registrations for the leader team</summary>
 	<summary lang="de">Veranstaltungen und Anmeldungen für die Leiterrunde</summary>
 	<description><![CDATA[Events module of the Leiterrunde suite – requires the Leiterrunde app. Events with team, budget, registrations and registration sync to the public website.]]></description>
+	<version>0.0.2</version>
 	<licence>agpl</licence>
 	<author>Leiterrunde</author>
-	<version>0.0.2</version>
 	<namespace>LeiterrundeVeranstaltungen</namespace>
 	<category>organization</category>
 	<bugs>https://github.com/ollimaz/leiterrunde_veranstaltungen/issues</bugs>
@@ -21,6 +21,20 @@
 	<dependencies>
 		<nextcloud min-version="29" max-version="36"/>
 	</dependencies>
+	<background-jobs>
+		<job>OCA\LeiterrundeVeranstaltungen\BackgroundJob\SyncRetryJob</job>
+	</background-jobs>
+	<repair-steps>
+		<post-migration>
+			<step>OCA\LeiterrundeVeranstaltungen\Migration\MigrateConfig</step>
+		</post-migration>
+		<install>
+			<step>OCA\LeiterrundeVeranstaltungen\Migration\MigrateConfig</step>
+		</install>
+	</repair-steps>
+	<settings>
+		<admin>OCA\LeiterrundeVeranstaltungen\Settings\SyncPage</admin>
+	</settings>
 	<navigations>
 		<navigation>
 			<name>Events</name>
@@ -28,18 +42,4 @@
 			<icon>leiterrunde_veranstaltungen.svg</icon>
 		</navigation>
 	</navigations>
-	<background-jobs>
-		<job>OCA\LeiterrundeVeranstaltungen\BackgroundJob\SyncRetryJob</job>
-	</background-jobs>
-	<repair-steps>
-		<install>
-			<step>OCA\LeiterrundeVeranstaltungen\Migration\MigrateConfig</step>
-		</install>
-		<post-migration>
-			<step>OCA\LeiterrundeVeranstaltungen\Migration\MigrateConfig</step>
-		</post-migration>
-	</repair-steps>
-	<settings>
-		<admin>OCA\LeiterrundeVeranstaltungen\Settings\SyncPage</admin>
-	</settings>
 </info>
