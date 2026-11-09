@@ -21,6 +21,7 @@ use OCP\Dashboard\Model\WidgetItems;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\IUserSession;
+use OCP\L10N\IFactory;
 
 class VeranstaltungenWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, IWidget {
 	public function __construct(
@@ -29,11 +30,12 @@ class VeranstaltungenWidget implements IAPIWidgetV2, IConditionalWidget, IIconWi
 		private IUserManager $userManager,
 		private PermissionService $perm,
 		private \OCA\LeiterrundeVeranstaltungen\Module\VeranstaltungenModule $module,
+		private IFactory $l10nFactory,
 	) {
 	}
 
 	public function getId(): string { return 'leiterrunde-veranstaltungen'; }
-	public function getTitle(): string { return $l10n->t('Leiterrunde: events'); }
+	public function getTitle(): string { return $this->l10nFactory->get(Application::APP_ID)->t('Leiterrunde: events'); }
 	public function getOrder(): int { return 20; }
 	public function getIconClass(): string { return 'icon-leiterrunde'; }
 	public function getIconUrl(): string { return $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(Application::APP_ID, 'app-dark.svg')); }
@@ -51,7 +53,7 @@ class VeranstaltungenWidget implements IAPIWidgetV2, IConditionalWidget, IIconWi
 		$items = [];
 		try {
 			foreach ($this->module->getOverviewTiles($user) as $tile) {
-				if ($tile->title !== 'Upcoming events') {
+				if ($tile->id !== 'events.upcoming') {
 					continue;
 				}
 				foreach (array_slice($tile->items, 0, $limit) as $i) {
