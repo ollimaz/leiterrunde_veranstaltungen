@@ -277,12 +277,19 @@ class EventsController extends ApiController {
 				$total += (float)$c->getAmount();
 			}
 			$capacity = $event->getCapacity();
-			return [
+			$out = [
 				'total' => round($total, 2),
 				'capacity' => $capacity,
 				'suggested_fee' => ($capacity !== null && $capacity > 0) ? round($total / $capacity, 2) : null,
 				'fee' => $event->getFee(),
 			];
+			if ($this->perm->has('finance.read')) {
+				$accounting = $this->modules->provider(\OCA\Leiterrunde\Module\IEventAccountingProvider::class);
+				if ($accounting !== null) {
+					$out['actual'] = $accounting->eventAccounting($id);
+				}
+			}
+			return $out;
 		});
 	}
 

@@ -24,7 +24,8 @@ class OverviewTilesTest extends TestCase {
 		$l->method('t')->willReturnCallback(fn($s, $p = []) => $p ? vsprintf($s, $p) : $s);
 		$user = $this->createMock(\OCP\IUser::class);
 		$user->method('getUID')->willReturn('u1');
-		$m = new VeranstaltungenModule($perm, $events, $regs, $l);
+		$audit = $this->createMock(\OCA\Leiterrunde\Service\AuditService::class);
+		$m = new VeranstaltungenModule($perm, $events, $regs, $audit, $l);
 		$ids = array_map(static fn($t) => $t->id, $m->getOverviewTiles($user));
 		foreach (['events.upcoming', 'events.registrations', 'events.syncerrors'] as $id) {
 			$this->assertContains($id, $ids);

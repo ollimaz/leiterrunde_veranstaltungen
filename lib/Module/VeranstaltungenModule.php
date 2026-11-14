@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\LeiterrundeVeranstaltungen\Module;
 
+use OCA\Leiterrunde\Exception\ApiException;
 use OCA\Leiterrunde\Module\CapabilityDefinition;
 use OCA\Leiterrunde\Module\IModule;
 use OCA\Leiterrunde\Module\OverviewTile;
@@ -18,11 +19,12 @@ use OCA\LeiterrundeVeranstaltungen\Db\RegistrationMapper;
 use OCP\IUser;
 use OCP\IL10N;
 
-class VeranstaltungenModule implements IModule {
+class VeranstaltungenModule implements IModule, \OCA\Leiterrunde\Module\IEventCatalog {
 	public function __construct(
 		private PermissionService $perm,
 		private EventMapper $eventMapper,
 		private RegistrationMapper $regMapper,
+		private \OCA\Leiterrunde\Service\AuditService $audit,
 		private ?IL10N $l10n = null,
 	) {
 	}
@@ -45,6 +47,33 @@ class VeranstaltungenModule implements IModule {
 			new CapabilityDefinition('events.write', $this->l10n->t('Write events'), $this->l10n->t('Events'), ['vorstand', 'admin']),
 			new CapabilityDefinition('registrations.read', $this->l10n->t('Read registrations'), $this->l10n->t('Events'), ['vorstand', 'kasse', 'admin']),
 		];
+	}
+
+	public function eventOptions(): array {
+		$this->perm->require('events.read');
+		return array_map(static fn ($e) => ['id' => $e->getId(), 'title' => $e->getTitle()], $this->eventMapper->findAll());
+	}
+
+	public function requireEvent(int $id): void {
+		$this->perm->require('events.read');
+		$this->eventMapper->find($id);
+	}
+
+	public function createEventOption(string $title): int {
+		$this->perm->require('events.write');
+		$title = trim($title);
+		if ($title === '' || mb_strlen($title) > 200) {
+			throw new ApiException('Invalid event title', 422);
+		}
+		$e = new \OCA\LeiterrundeVeranstaltungen\Db\Event();
+		$e->setTitle($title);
+		$e->setStartDate((new \DateTimeImmutable('today'))->format('Y-m-d'));
+		$e->setStatus('draft');
+		$e->setCreatedAt(time());
+		$e->setUpdatedAt(time());
+		$e = $this->eventMapper->insert($e);
+		$this->audit->diff('event', $e->getId(), null, ['_action' => 'created']);
+		return $e->getId();
 	}
 
 	public function getDocumentTypes(): array {

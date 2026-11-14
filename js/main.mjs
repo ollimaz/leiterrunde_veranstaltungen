@@ -1,13 +1,14 @@
 /* SPDX-FileCopyrightText: 2026 Leiterrunde
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-const { mountApp, h, badge, toast, formatDate, formatMoney, put, lrPageHeader, field, formActions, emptyState } = window.LeiterrundeUI;
+const { mountApp, h, badge, toast, formatDate, formatMoney, put, lrPageHeader, field, formActions, emptyState, checkField, personPicker, lrLocale } = window.LeiterrundeUI;
 const { t: _t, n: _n } = window.LeiterrundeUI.l10n('leiterrunde_veranstaltungen');
 
 const APP = 'leiterrunde_veranstaltungen';
 
 const NAV = [
 	{ route: '#/liste', label: _t('Events'), cap: 'events.read', icon: 'calendar' },
+	{ route: '#/termine', label: _t('Termine'), cap: 'events.read', icon: 'clock' },
 ];
 
 async function viewListe(v, ME, { api }) {
@@ -183,6 +184,12 @@ async function calcTab(c, e, canWrite, api) {
 	};
 	put(c,
 		h('p', {}, _t('Total: {total} · Capacity: {cap} · Suggested: {suggested} · Fee: {fee}', { total: formatMoney(calc.total), cap: calc.capacity ?? '–', suggested: calc.suggested_fee !== null ? formatMoney(calc.suggested_fee) : '–', fee: calc.fee !== null ? formatMoney(calc.fee) : '–' })),
+		calc.actual ? h('p', {}, _t('Booked: income {income} · outgoing {outgoing} · committed {committed}', { income: formatMoney(calc.actual.income), outgoing: formatMoney(calc.actual.outgoing), committed: formatMoney(calc.actual.committed) })) : null,
+		calc.actual && calc.actual.books.length ? h('table', { class: 'lr-table' },
+			h('thead', {}, h('tr', {}, h('th', {}, _t('Book')), h('th', { class: 'num' }, _t('Income')), h('th', { class: 'num' }, _t('Outgoing')), h('th', { class: 'num' }, _t('Committed')), h('th', { class: 'num' }, _t('Balance')))),
+			h('tbody', {}, ...calc.actual.books.map(b => h('tr', {},
+				h('td', {}, b.name), h('td', { class: 'num' }, formatMoney(b.income)), h('td', { class: 'num' }, formatMoney(b.outgoing)),
+				h('td', { class: 'num' }, formatMoney(b.committed)), h('td', { class: 'num' }, formatMoney(b.balance)))))) : null,
 		canWrite ? h('div', { class: 'lr-form lr-formgrid' },
 			field(_t('Label'), label, 6), field(_t('Amount'), amount, 3), field(_t('Category'), cat, 3),
 			formActions(add)) : null,
@@ -224,6 +231,171 @@ async function regsTab(c, e, api, canWrite) {
 		: emptyState(_t('No registrations.')));
 }
 
+/* ---- Termine (internal recurring appointments) ---- */
+
+const WD = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(lrLocale(), { weekday: 'long' }));
+const POS = { 1: _t('1st'), 2: _t('2nd'), 3: _t('3rd'), 4: _t('4th'), '-1': _t('Last') };
+
+const ruleLabel = (t) => {
+	switch (t.freq) {
+		case 'weekly': return _t('Weekly · {wd}', { wd: WD[(t.weekday || 1) - 1] });
+		case 'monthly_weekday': return _t('Monthly · {pos} {wd}', { pos: POS[t.month_pos] || t.month_pos, wd: WD[(t.weekday || 1) - 1] });
+		case 'monthly_date': return _t('Monthly · day {d}', { d: t.month_day });
+		default: return _t('Once');
+	}
+};
+const timeLabel = (t) => t.all_day ? _t('All day') : (t.start_time || '') + (t.end_time ? '–' + t.end_time : '');
+const audLabel = (t, roles) => {
+	if (t.audience_roles === undefined && t.audience_persons === undefined) return '–';
+	const rs = JSON.parse(t.audience_roles || '[]'), ps = JSON.parse(t.audience_persons || '[]');
+	if (!rs.length && !ps.length) return _t('Editors only');
+	return rs.map(r => _t(roles[r] || r)).concat(ps.length ? [_n('%n person', '%n persons', ps.length)] : []).join(', ');
+};
+
+async function viewTermine(v, ME, { api }) {
+	const [termine, meta] = await Promise.all([api('/termine'), api('/termine/audience-meta').catch(() => ({ roles: {} }))]);
+	const canWrite = ME.caps['events.write'];
+	const sorted = [...termine].sort((a, b) => String(a.next_dates[0] || '9999').localeCompare(String(b.next_dates[0] || '9999')));
+	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Termine'), title: _t('Termine'),
+		actions: canWrite ? [h('button', { class: 'lr-btn', onclick: () => location.hash = '#/termin-neu' }, _t('New appointment'))] : [] }),
+		termine.length ? h('table', { class: 'lr-table' },
+			h('thead', {}, h('tr', {}, h('th', {}, _t('Title')), h('th', {}, _t('Next date')), h('th', {}, _t('Time')), h('th', {}, _t('Repetition')), h('th', {}, _t('Audience')))),
+			h('tbody', {}, ...sorted.map(t => h('tr', {},
+				h('td', {}, h('a', { href: '#/termin/' + t.id }, t.title)),
+				h('td', {}, t.next_dates[0] ? formatDate(t.next_dates[0]) : _t('past')),
+				h('td', {}, timeLabel(t)),
+				h('td', {}, ruleLabel(t)),
+				h('td', { class: 'lr-muted' }, audLabel(t, meta.roles))))))
+			: emptyState(_t('No appointments.')));
+}
+
+function terminForm(t, meta, persons) {
+	const audRoles = JSON.parse(t.audience_roles || '[]');
+	const audPersons = (JSON.parse(t.audience_persons || '[]') || []).map(Number);
+	const titleI = h('input', { value: t.title || '' });
+	const loc = h('input', { value: t.location || '' });
+	const desc = h('textarea', { rows: 3 }, t.description || '');
+	const start = h('input', { type: 'date', value: t.start_date || '' });
+	const until = h('input', { type: 'date', value: t.recur_until || '' });
+	const allDay = h('input', { type: 'checkbox' });
+	allDay.checked = t.all_day !== false && t.all_day !== 0;
+	const sTime = h('input', { type: 'time', value: t.start_time || '' });
+	const eTime = h('input', { type: 'time', value: t.end_time || '' });
+	const freq = h('select', {}, ...[['once', _t('Once')], ['weekly', _t('Weekly')], ['monthly_weekday', _t('Monthly · by weekday')], ['monthly_date', _t('Monthly · by date')]]
+		.map(([val, l]) => h('option', { value: val, selected: (t.freq || 'once') === val }, l)));
+	const wdSel = h('select', {}, ...WD.map((n, i) => h('option', { value: i + 1, selected: t.weekday === i + 1 }, n)));
+	const posSel = h('select', {}, ...[1, 2, 3, 4, -1].map(p => h('option', { value: p, selected: t.month_pos === p }, POS[p])));
+	const mDay = h('input', { type: 'number', min: 1, max: 31, value: t.month_day || '' });
+	const wdField = field(_t('Weekday'), wdSel, 3);
+	const posField = field(_t('Position'), posSel, 3);
+	const mdayField = field(_t('Day of month'), mDay, 3);
+	const untilField = field(_t('Recurring until (optional)'), until, 3);
+	const timeField = field(_t('Time'), h('span', {}, sTime, ' – ', eTime), 4);
+	const applyFreq = () => {
+		const f = freq.value;
+		wdField.style.display = (f === 'weekly' || f === 'monthly_weekday') ? '' : 'none';
+		posField.style.display = (f === 'monthly_weekday') ? '' : 'none';
+		mdayField.style.display = (f === 'monthly_date') ? '' : 'none';
+		untilField.style.display = (f === 'once') ? 'none' : '';
+	};
+	freq.addEventListener('change', applyFreq); applyFreq();
+	const applyDay = () => { timeField.style.display = allDay.checked ? 'none' : ''; };
+	allDay.addEventListener('change', applyDay); applyDay();
+
+	const roleIds = Object.keys(meta.roles);
+	const roleBoxes = roleIds.map(r => { const c = h('input', { type: 'checkbox' }); c.checked = audRoles.includes(r); return c; });
+	const chips = h('div', { class: 'lr-chips' });
+	const pname = (pid) => { const p = persons.find(x => +x.id === +pid); return p ? p.last_name + ', ' + p.first_name : '#' + pid; };
+	const renderChips = () => {
+		chips.textContent = '';
+		for (const pid of audPersons) chips.append(h('span', { class: 'lr-chip' }, pname(pid),
+			h('button', { class: 'lr-chip-x', type: 'button', onclick: () => { audPersons.splice(audPersons.indexOf(pid), 1); renderChips(); } }, '×')));
+	};
+	renderChips();
+	const picker = personPicker({ persons, onChange: (id) => { if (id && !audPersons.includes(+id)) { audPersons.push(+id); renderChips(); } } });
+
+	const el = h('div', { class: 'lr-form lr-formgrid' },
+		field(_t('Title'), titleI, 8), field(_t('Location'), loc, 4),
+		field(_t('Date / series start'), start, 3), untilField,
+		h('div', { class: 'lr-f col-2' }, h('label', { class: 'lr-flabel' }, ' '), checkField(_t('All day'), allDay)),
+		timeField,
+		field(_t('Repetition'), freq, 4), wdField, posField, mdayField,
+		h('div', { class: 'lr-f col-12' },
+			h('label', { class: 'lr-flabel' }, _t('Audience')),
+			h('p', { class: 'lr-small lr-muted' }, _t('Visible to selected roles and people only. With nothing selected only editors can see this appointment.')),
+			h('div', {}, ...roleIds.map((r, i) => h('label', { class: 'lr-check', style: 'display:inline-flex;margin:0 14px 6px 0' }, roleBoxes[i], ' ' + _t(meta.roles[r])))),
+			h('div', { style: 'max-width:340px' }, picker), chips),
+		field(_t('Description'), desc, 12));
+
+	const collect = () => {
+		const body = {
+			title: titleI.value, location: loc.value || null, description: desc.value || null,
+			start_date: start.value, all_day: allDay.checked, freq: freq.value,
+			audience_roles: JSON.stringify(roleIds.filter((r, i) => roleBoxes[i].checked)),
+			audience_persons: JSON.stringify(audPersons),
+		};
+		if (!allDay.checked) { body.start_time = sTime.value || null; body.end_time = eTime.value || null; }
+		if (freq.value === 'weekly' || freq.value === 'monthly_weekday') body.weekday = +wdSel.value;
+		if (freq.value === 'monthly_weekday') body.month_pos = +posSel.value;
+		if (freq.value === 'monthly_date') body.month_day = +mDay.value;
+		if (freq.value !== 'once') body.recur_until = until.value || null;
+		return body;
+	};
+	return { el, collect };
+}
+
+async function viewTerminNeu(v, ME, { api, coreApi }) {
+	const [meta, persons] = await Promise.all([
+		api('/termine/audience-meta'),
+		coreApi('/persons/options').catch(() => []),
+	]);
+	const { el, collect } = terminForm({ freq: 'once', all_day: true }, meta, persons);
+	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Termine'), title: _t('New appointment') }), el,
+		formActions(
+			h('button', { class: 'lr-btn', onclick: async () => {
+				try {
+					const t = await api('/termine', { method: 'POST', json: collect() });
+					toast(_t('Created'), false); location.hash = '#/termin/' + t.id;
+				} catch (e) { toast(e.message); }
+			} }, _t('Create')),
+			h('button', { class: 'lr-btn secondary', onclick: () => location.hash = '#/termine' }, _t('Cancel'))));
+}
+
+async function viewTermin(v, ME, ctx) {
+	const { api, coreApi } = ctx;
+	const id = location.hash.split('/')[2];
+	const t = await api('/termine/' + id);
+	const canWrite = ME.caps['events.write'];
+	const dates = h('ul', {}, ...(t.next_dates || []).map(d => h('li', {}, formatDate(d))));
+	if (!canWrite) {
+		put(v, lrPageHeader({ kicker: _t('Leiterrunde · Termine'), title: t.title,
+			lede: [ruleLabel(t), timeLabel(t), t.location || ''].filter(Boolean).join(' · ') }),
+			t.description ? h('p', {}, t.description) : null,
+			h('h3', { class: 'lr-subhead' }, _t('Next dates')), dates);
+		return;
+	}
+	const [meta, persons] = await Promise.all([
+		api('/termine/audience-meta'),
+		coreApi('/persons/options').catch(() => []),
+	]);
+	const { el, collect } = terminForm(t, meta, persons);
+	const del = async () => {
+		if (!confirm(_t('Delete appointment "{title}"? This cannot be undone.', { title: t.title }))) return;
+		try { await api('/termine/' + id, { method: 'DELETE' }); toast(_t('Deleted'), false); location.hash = '#/termine'; }
+		catch (er) { toast(er.message); }
+	};
+	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Termine'), title: t.title,
+		lede: ruleLabel(t),
+		actions: [h('button', { class: 'lr-btn quiet', onclick: del }, _t('Delete'))] }),
+		h('h3', { class: 'lr-subhead' }, _t('Next dates')), dates, el,
+		formActions(h('button', { class: 'lr-btn', onclick: async () => {
+			try {
+				await api('/termine/' + id, { method: 'PUT', json: collect() });
+				toast(_t('Saved'), false); viewTermin(v, ME, ctx);
+			} catch (er) { toast(er.message); }
+		} }, _t('Save'))));
+}
+
 mountApp({
 	appId: APP,
 	title: _t('Events'),
@@ -232,6 +404,9 @@ mountApp({
 		'#/liste': viewListe,
 		'#/neu': eventForm,
 		'#/detail': viewDetail,
+		'#/termine': viewTermine,
+		'#/termin-neu': viewTerminNeu,
+		'#/termin': viewTermin,
 	},
 	defaultRoute: '#/liste',
 });

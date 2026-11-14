@@ -29,5 +29,6 @@ class RegisterVeranstaltungenModule implements IEventListener {
 		}
 		$event->registerModule($this->module);
 		$event->registerProvider(ISyncHandler::class, $this->syncHandler);
+		$event->registerProvider(\OCA\Leiterrunde\Module\IEventCatalog::class, $this->module);
 	}
 }
