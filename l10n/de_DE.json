@@ -158,7 +158,8 @@
         "Too many persons in audience": "Zu viele Personen im Teilnehmerkreis",
         "All": "Alle",
         "Search appointments …": "Termine suchen …",
-        "Search events …": "Veranstaltungen suchen …"
+        "Search events …": "Veranstaltungen suchen …",
+        "The “Leiterrunde” app must be enabled.": "Die „Leiterrunde“-App muss aktiviert sein."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }
