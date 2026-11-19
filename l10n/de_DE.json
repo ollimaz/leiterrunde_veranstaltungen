@@ -155,7 +155,10 @@
         "End time must be after start time": "Endzeit muss nach der Startzeit liegen",
         "Not logged in": "Nicht angemeldet",
         "Last": "letzter",
-        "Too many persons in audience": "Zu viele Personen im Teilnehmerkreis"
+        "Too many persons in audience": "Zu viele Personen im Teilnehmerkreis",
+        "All": "Alle",
+        "Search appointments …": "Termine suchen …",
+        "Search events …": "Veranstaltungen suchen …"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

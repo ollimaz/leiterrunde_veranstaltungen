@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Leiterrunde
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-const { mountApp, h, badge, toast, formatDate, formatMoney, put, lrPageHeader, field, formActions, emptyState, checkField, personPicker, lrLocale } = window.LeiterrundeUI;
+const { mountApp, h, badge, toast, formatDate, formatMoney, put, lrPageHeader, field, formActions, emptyState, checkField, personPicker, lrLocale, listView, persistForm, menuButton, BADGE_LABELS } = window.LeiterrundeUI;
 const { t: _t, n: _n } = window.LeiterrundeUI.l10n('leiterrunde_veranstaltungen');
 
 const APP = 'leiterrunde_veranstaltungen';
@@ -14,16 +14,29 @@ const NAV = [
 async function viewListe(v, ME, { api }) {
 	const events = await api('/events');
 	const canWrite = ME.caps['events.write'];
+	const lv = listView({
+		scope: 'events',
+		search: { placeholder: _t('Search events …'), text: e => [e.title, e.location].filter(Boolean).join(' ') },
+		filters: [
+			{ key: 'status', label: _t('Status'), options: [{ value: '', label: _t('All') }, ...['draft', 'published', 'cancelled'].map(s => ({ value: s, label: BADGE_LABELS[s] || s }))],
+				apply: (e, val) => e.status === val },
+		],
+		sorts: [
+			{ key: 'date', label: _t('Date'), value: e => e.start_date || '' },
+			{ key: 'title', label: _t('Title'), value: e => e.title || '' },
+		],
+		headers: [_t('Title'), _t('Date'), _t('Location'), _t('Status'), _t('Sync')],
+		row: (e) => h('tr', {},
+			h('td', {}, h('a', { href: '#/detail/' + e.id }, e.title)),
+			h('td', {}, formatDate(e.start_date)), h('td', {}, e.location || ''),
+			h('td', {}, badge(e.status)),
+			h('td', {}, e.sync_pending ? badge('pending') : (e.last_sync_status || '–'))),
+		empty: _t('No events.'),
+	});
+	lv.setRows(events);
 	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Events'), title: _t('Events'),
 			actions: canWrite ? [h('button', { class: 'lr-btn', onclick: () => location.hash = '#/neu' }, _t('New event'))] : [] }),
-		events.length ? h('table', { class: 'lr-table' },
-			h('thead', {}, h('tr', {}, h('th', {}, _t('Title')), h('th', {}, _t('Date')), h('th', {}, _t('Location')), h('th', {}, _t('Status')), h('th', {}, _t('Sync')))),
-			h('tbody', {}, ...events.map(e => h('tr', {},
-				h('td', {}, h('a', { href: '#/detail/' + e.id }, e.title)),
-				h('td', {}, formatDate(e.start_date)), h('td', {}, e.location || ''),
-				h('td', {}, badge(e.status)),
-				h('td', {}, e.sync_pending ? badge('pending') : (e.last_sync_status || '–'))))))
-			: emptyState(_t('No events.')));
+		lv.el);
 }
 
 function eventForm(v, ME, { api }) {
@@ -32,7 +45,7 @@ function eventForm(v, ME, { api }) {
 		dl = h('input', { type: 'date' }), desc = h('textarea', { rows: 3 });
 	const fields = h('textarea', { rows: 5 });
 	api('/settings').then(s => { fields.value = s.default_reg_fields || '[]'; });
-	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Events'), title: _t('New event') }), h('div', { class: 'lr-form lr-formgrid' },
+	const form = h('div', { class: 'lr-form lr-formgrid' },
 		field(_t('Title'), titleI, 8), field(_t('Location'), loc, 4),
 		field(_t('Start'), start, 3), field(_t('End'), end, 3),
 		field(_t('Registration deadline'), dl, 3), field(_t('Capacity'), cap, 3),
@@ -42,10 +55,12 @@ function eventForm(v, ME, { api }) {
 		formActions(h('button', { class: 'lr-btn', onclick: async () => {
 			try {
 				const e = await api('/events', { method: 'POST', json: { title: titleI.value, start_date: start.value, end_date: end.value || null, location: loc.value || null, fee: fee.value ? +fee.value : null, capacity: cap.value ? +cap.value : null, reg_deadline: dl.value || null, reg_fields: fields.value, description: desc.value || null } });
-				toast(_t('Created'), false); location.hash = '#/detail/' + e.id;
+				draft.clear(); toast(_t('Created'), false); location.hash = '#/detail/' + e.id;
 			} catch (e) { toast(e.message); }
 		} }, _t('Create')),
-		h('button', { class: 'lr-btn secondary', onclick: () => location.hash = '#/liste' }, _t('Cancel')))));
+		h('button', { class: 'lr-btn secondary', onclick: () => location.hash = '#/liste' }, _t('Cancel'))));
+	const draft = persistForm(form, APP + '.event-new');
+	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Events'), title: _t('New event') }), form);
 }
 
 async function viewDetail(v, ME, { api, coreApi }) {
@@ -255,18 +270,26 @@ const audLabel = (t, roles) => {
 async function viewTermine(v, ME, { api }) {
 	const [termine, meta] = await Promise.all([api('/termine'), api('/termine/audience-meta').catch(() => ({ roles: {} }))]);
 	const canWrite = ME.caps['events.write'];
-	const sorted = [...termine].sort((a, b) => String(a.next_dates[0] || '9999').localeCompare(String(b.next_dates[0] || '9999')));
+	const lv = listView({
+		scope: 'termine',
+		search: { placeholder: _t('Search appointments …'), text: t => [t.title, t.location].filter(Boolean).join(' ') },
+		sorts: [
+			{ key: 'next', label: _t('Next date'), value: t => t.next_dates[0] || '9999' },
+			{ key: 'title', label: _t('Title'), value: t => t.title || '' },
+		],
+		headers: [_t('Title'), _t('Next date'), _t('Time'), _t('Repetition'), _t('Audience')],
+		row: (t) => h('tr', {},
+			h('td', {}, h('a', { href: '#/termin/' + t.id }, t.title)),
+			h('td', {}, t.next_dates[0] ? formatDate(t.next_dates[0]) : _t('past')),
+			h('td', {}, timeLabel(t)),
+			h('td', {}, ruleLabel(t)),
+			h('td', { class: 'lr-muted' }, audLabel(t, meta.roles))),
+		empty: _t('No appointments.'),
+	});
+	lv.setRows(termine);
 	put(v, lrPageHeader({ kicker: _t('Leiterrunde · Termine'), title: _t('Termine'),
 		actions: canWrite ? [h('button', { class: 'lr-btn', onclick: () => location.hash = '#/termin-neu' }, _t('New appointment'))] : [] }),
-		termine.length ? h('table', { class: 'lr-table' },
-			h('thead', {}, h('tr', {}, h('th', {}, _t('Title')), h('th', {}, _t('Next date')), h('th', {}, _t('Time')), h('th', {}, _t('Repetition')), h('th', {}, _t('Audience')))),
-			h('tbody', {}, ...sorted.map(t => h('tr', {},
-				h('td', {}, h('a', { href: '#/termin/' + t.id }, t.title)),
-				h('td', {}, t.next_dates[0] ? formatDate(t.next_dates[0]) : _t('past')),
-				h('td', {}, timeLabel(t)),
-				h('td', {}, ruleLabel(t)),
-				h('td', { class: 'lr-muted' }, audLabel(t, meta.roles))))))
-			: emptyState(_t('No appointments.')));
+		lv.el);
 }
 
 function terminForm(t, meta, persons) {
