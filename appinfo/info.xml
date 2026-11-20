@@ -10,7 +10,18 @@
 	<name lang="de">Veranstaltungen</name>
 	<summary>Events and registrations for the leader team</summary>
 	<summary lang="de">Veranstaltungen und Anmeldungen für die Leiterrunde</summary>
-	<description><![CDATA[Events module of the Leiterrunde suite – requires the Leiterrunde app. Events with team, budget, registrations and registration sync to the public website.]]></description>
+	<description><![CDATA[Events module of the Leiterrunde suite – requires the Leiterrunde app.
+
+Event planning and registration management:
+
+• Events with team roles, team check and linked staff
+• Budget calculation and cost tracking per event
+• Registrations for participants
+• Appointment sync (Termine) to the public website with retry via background job
+• Publish workflow with secret-key settings
+• Backfill of payment obligations to the Finances module
+
+Requires the Leiterrunde app for persons, roles and permissions.]]></description>
 	<version>0.0.6</version>
 	<licence>agpl</licence>
 	<author>Leiterrunde</author>
